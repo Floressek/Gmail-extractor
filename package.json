@@ -11,6 +11,7 @@
     "express": "^4.21.0",
     "google-auth-library": "^9.14.1",
     "googleapis": "^144.0.0",
+    "imap": "^0.8.19",
     "imap-simple": "^1.6.3",
     "mailparser": "^3.7.1",
     "quoted-printable": "^1.0.1",
