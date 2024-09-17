@@ -1,0 +1,21 @@
+{
+  "name": "gmail-imap",
+  "version": "1.0.0",
+  "description": "Aplikacja do pobierania załączników z Gmaila w celu późniejszego OCR-owania.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "google-auth-library": "^9.14.1",
+    "googleapis": "^144.0.0",
+    "imap-simple": "^1.6.3",
+    "mailparser": "^3.7.1",
+    "quoted-printable": "^1.0.1",
+    "utf8": "^3.0.0"
+  },
+  "author": "Floresek",
+  "license": "ISC"
+}
