@@ -31,7 +31,7 @@ async function main() {
         const auth = await authorize(JSON.parse(content));
         await connectToImap(auth);
     } catch (error) {
-        console.error('Wystąpił błąd:', error);
+        console.error('Error occurred:', error);
     }
 }
 
@@ -64,19 +64,19 @@ function getNewToken(oAuth2Client) {
                 const {tokens} = await oAuth2Client.getToken(code);
                 oAuth2Client.setCredentials(tokens);
                 await fs.writeFile(TOKEN_PATH, JSON.stringify(tokens));
-                console.log('Token zapisany do pliku:', TOKEN_PATH);
-                res.send('Autoryzacja zakończona pomyślnie! Możesz zamknąć tę kartę.');
+                console.log('Token saved to file:', TOKEN_PATH);
+                res.send('Authorization completed successfully! You can close this tab.');
                 resolve(oAuth2Client);
             } catch (err) {
-                console.error('Błąd podczas pobierania tokena:', err);
-                res.send('Błąd podczas pobierania tokena.');
+                console.error('Error fetching token:', err);
+                res.send('Error fetching token.');
                 reject(err);
             }
         });
 
         app.listen(port, () => {
-            console.log(`Serwer nasłuchuje na http://localhost:${port}`);
-            console.log('Otwórz ten URL w przeglądarce, aby autoryzować aplikację:', authUrl);
+            console.log(`Server listening at http://localhost:${port}`);
+            console.log('Open this URL in your browser to authorize the app:', authUrl);
         });
     });
 }
@@ -101,15 +101,15 @@ let unnamedCounter = 0;
 function decodeFilename(filename) {
     if (!filename) {
         unnamedCounter++;
-        return `unnamed_attachment_${unnamedCounter}`;  // Dodajemy domyślne rozszerzenie
+        return `unnamed_attachment_${unnamedCounter}`;
     }
 
-    // Dekodowanie nazwy pliku z formatu MIME
+    // Decoding filename from MIME format
     if (filename.startsWith('=?UTF-8?Q?')) {
         filename = filename.replace('=?UTF-8?Q?', '').replace('?=', '');
         filename = utf8.decode(quotedPrintable.decode(filename));
     }
-    // Usuwanie niedozwolonych znaków z nazwy pliku
+    // Removing illegal characters from the filename
     return filename.replace(/[/\\?%*:|"<>]/g, '-');
 }
 
@@ -125,11 +125,11 @@ async function connectToImap(auth) {
             port: 993,
             tls: true,
             tlsOptions: {
-                rejectUnauthorized: false, // Akceptuj niezaufane certyfikaty (tylko do testów)
+                rejectUnauthorized: false,
             },
             authTimeout: 3000,
         },
-        onError: (err) => console.error('Błąd IMAP:', err),
+        onError: (err) => console.error('IMAP Error:', err),
     };
 
     try {
@@ -162,9 +162,9 @@ async function connectToImap(auth) {
                             encoding: part.encoding,
                             mimeType: mimeType
                         });
-                        console.log(`Wykryto dozwolony załącznik: ${filename}, Typ MIME: ${mimeType}, Rozszerzenie: ${extension}`);
+                        console.log(`Allowed attachment detected: ${filename}, MIME Type: ${mimeType}, Extension: ${extension}`);
                     } else {
-                        console.log(`Pominięto załącznik o niedozwolonym typie: ${filename}, Typ MIME: ${mimeType}, Rozszerzenie: ${extension}`);
+                        console.log(`Skipped attachment with disallowed type: ${filename}, MIME Type: ${mimeType}, Extension: ${extension}`);
                     }
                 }
             });
@@ -179,16 +179,16 @@ async function connectToImap(auth) {
                     try {
                         const filePath = path.join(ATTACHMENT_DIR, attachment.filename);
                         fs_sync.writeFileSync(filePath, partData);
-                        console.log('Zapisano załącznik:', attachment.filename);
+                        console.log('Attachment saved:', attachment.filename);
                     } catch (err) {
-                        console.error('Błąd przy zapisywaniu załącznika:', attachment.filename, err);
+                        console.error('Error saving attachment:', attachment.filename, err);
                     }
                 });
         });
 
         await Promise.all(attachmentPromises);
     } catch (err) {
-        console.error('Błąd połączenia z IMAP:', err);
+        console.error('IMAP connection error:', err);
     }
 }
 
