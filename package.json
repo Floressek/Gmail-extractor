@@ -7,20 +7,42 @@
     "start": "node index.js"
   },
   "dependencies": {
+    "anymatch": "^3.1.3",
+    "braces": "^3.0.3",
+    "chokidar": "^4.0.0",
     "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
     "express": "^4.21.0",
+    "glob": "^11.0.0",
     "google-auth-library": "^9.14.1",
     "googleapis": "^144.0.0",
-    "imap": "^0.8.19",
+    "imap": "^0.8.17",
     "imap-simple": "^1.6.3",
+    "lru-cache": "^11.0.1",
     "mailparser": "^3.7.1",
     "mammoth": "^1.8.0",
+    "micromatch": "^4.0.8",
+    "move-concurrently": "^1.0.1",
+    "pdf-lib": "^1.17.1",
     "pdf-parse": "^1.1.1",
+    "pdf-table-extractor": "^1.0.3",
+    "pdf.js-extract": "^0.2.1",
+    "picomatch": "^4.0.2",
     "quoted-printable": "^1.0.1",
+    "readdirp": "^4.0.1",
+    "rimraf": "^6.0.1",
     "sharp": "^0.33.5",
+    "source-map-url": "^0.4.1",
     "utf8": "^3.0.0",
+    "winston": "^3.14.2",
     "xlsx": "^0.18.5"
   },
   "author": "Floresek",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "fs-write-stream-atomic": "^1.0.10",
+    "resolve-url": "^0.2.1",
+    "source-map-resolve": "^0.6.0",
+    "urix": "^0.1.0"
+  }
 }
