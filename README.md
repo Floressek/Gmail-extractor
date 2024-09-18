@@ -9,8 +9,7 @@ This project is an automated system for processing email attachments from a Gmai
 4. [Usage](#usage)
 5. [File Processing](#file-processing)
 6. [Contributing](#contributing)
-7. [License](#license)
-
+   
 ## Project Structure
 
 ```
