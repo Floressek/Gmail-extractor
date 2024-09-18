@@ -5,6 +5,10 @@ const {google} = require('googleapis');
 const imaps = require('imap-simple');
 const quotedPrintable = require('quoted-printable');
 const utf8 = require('utf8');
+const pdf = require('pdf-parse');
+const mammoth = require('mammoth');
+const xlsx = require('xlsx');
+const sharp = require('sharp');
 
 const CREDENTIALS_PATH = 'credentials.json';
 const TOKEN_PATH = 'token.json';
@@ -13,7 +17,7 @@ const ATTACHMENT_DIR = 'attachments';
 
 const SCOPES = ['https://mail.google.com/'];
 
-const ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.csv', '.png', '.jpg'];
+const ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.csv', '.png', '.jpg', '.jpeg'];
 const ALLOWED_MIME_TYPES = [
     'application/pdf',
     'application/msword',
@@ -24,6 +28,8 @@ const ALLOWED_MIME_TYPES = [
     'image/png',
     'image/jpeg'
 ];
+
+const PROCESSED_DIR = 'processed_attachments';
 
 let oAuth2Client;
 
@@ -45,7 +51,6 @@ async function authorize(credentials) {
         const token = JSON.parse(await fs.readFile(TOKEN_PATH));
         oAuth2Client.setCredentials(token);
 
-        // Set up token refresh logic
         oAuth2Client.on('tokens', (tokens) => {
             if (tokens.refresh_token) {
                 token.refresh_token = tokens.refresh_token;
@@ -56,7 +61,6 @@ async function authorize(credentials) {
             console.log('Token updated and saved to file');
         });
 
-        // Check if token is expired and refresh if necessary
         if (oAuth2Client.isTokenExpiring()) {
             await oAuth2Client.refreshAccessToken();
             console.log('Token refreshed');
@@ -164,8 +168,11 @@ async function processNewEmails(connection) {
                             const filePath = path.join(ATTACHMENT_DIR, filename);
                             await fs.writeFile(filePath, partData);
                             console.log('Attachment saved:', filename);
+
+                            // Process the attachment
+                            await processAttachment(filePath, extension);
                         } catch (err) {
-                            console.error('Error saving attachment:', filename, err);
+                            console.error('Error saving or processing attachment:', filename, err);
                             processedSuccessfully = false;
                         }
                     } else {
@@ -173,6 +180,10 @@ async function processNewEmails(connection) {
                     }
                 }
             }
+
+            // Process email content
+            const emailContent = await getEmailContent(connection, message);
+            await processEmailContent(emailContent);
 
             if (processedSuccessfully) {
                 try {
@@ -203,7 +214,6 @@ async function markMessageAsSeen(connection, uid) {
 }
 
 async function startImapListener(auth) {
-
     const getAccessToken = async () => {
         if (auth.isTokenExpiring()) {
             await auth.refreshAccessToken();
@@ -253,6 +263,113 @@ async function startImapListener(auth) {
     } catch (err) {
         console.error('IMAP connection error:', err);
     }
+}
+
+async function processAttachment(filePath, extension) {
+    const fileName = path.basename(filePath);
+    let processedContent = '';
+
+
+    switch (extension.toLowerCase()) {
+        case '.pdf':
+            processedContent = await processPDF(filePath);
+            break;
+        case '.doc':
+        case '.docx':
+            processedContent = await processWord(filePath);
+            break;
+        case '.xls':
+        case '.xlsx':
+        case '.csv':
+            processedContent = await processSpreadsheet(filePath);
+            break;
+        case '.png':
+        case '.jpg':
+        case '.jpeg':
+            processedContent = await processImage(filePath);
+            break;
+        default:
+            console.log(`Unsupported file format: ${extension}`);
+            return;
+    }
+
+    const formatDir = extension.toLowerCase().replace('.', '');
+    const destDir = path.join(PROCESSED_DIR, formatDir);
+    await fs.mkdir(destDir, {recursive: true});
+
+    const destFilePath = path.join(destDir, fileName);
+    const processedFilePath = path.join(destDir, `${path.parse(fileName).name}_processed.txt`);
+
+    await fs.copyFile(filePath, destFilePath);
+    await fs.writeFile(processedFilePath, processedContent);
+    // await fs.unlink(filePath); // Remove the original file from the attachments directory
+
+    console.log(`Processed ${fileName} and saved results to ${processedFilePath}`);
+}
+
+async function processPDF(filePath) {
+    try {
+        const dataBuffer = await fs.readFile(filePath);
+        const data = await pdf(dataBuffer);
+        return `PDF Content:\n${data.text}`;
+    } catch (error) {
+        console.error('Error processing PDF:', error);
+        return `Error processing PDF: ${error.message}`;
+    }
+}
+
+async function processWord(filePath) {
+    try {
+        const result = await mammoth.extractRawText({path: filePath});
+        return `Word Document Content:\n${result.value}`;
+    } catch (error) {
+        console.error('Error processing Word document:', error);
+        return `Error processing Word document: ${error.message}`;
+    }
+}
+
+async function processSpreadsheet(filePath) {
+    try {
+        const workbook = xlsx.readFile(filePath);
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const data = xlsx.utils.sheet_to_json(sheet);
+        return `Spreadsheet Data:\n${JSON.stringify(data, null, 2)}`;
+    } catch (error) {
+        console.error('Error processing spreadsheet:', error);
+        return `Error processing spreadsheet: ${error.message}`;
+    }
+}
+
+async function processImage(filePath) {
+    try {
+        const metadata = await sharp(filePath).metadata();
+        return `Image Metadata:\n${JSON.stringify(metadata, null, 2)}`;
+    } catch (error) {
+        console.error('Error processing image:', error);
+        return `Error processing image: ${error.message}`;
+    }
+}
+
+async function processEmailContent(content) {
+    const emailDir = path.join(PROCESSED_DIR, 'emails');
+    await fs.mkdir(emailDir, {recursive: true});
+    const emailFilePath = path.join(emailDir, `email_${Date.now()}.txt`);
+    await fs.writeFile(emailFilePath, content);
+    console.log(`Email content saved to ${emailFilePath}`);
+}
+
+
+async function getEmailContent(connection, message) {
+    const parts = imaps.getParts(message.attributes.struct);
+    const textParts = parts.filter(part => part.type === 'text' && part.subtype === 'plain');
+
+    if (textParts.length > 0) {
+        const partData = await connection.getPartData(message, textParts[0]);
+        return partData.toString();
+    }
+
+    return '';
 }
 
 main();

@@ -14,8 +14,12 @@
     "imap": "^0.8.19",
     "imap-simple": "^1.6.3",
     "mailparser": "^3.7.1",
+    "mammoth": "^1.8.0",
+    "pdf-parse": "^1.1.1",
     "quoted-printable": "^1.0.1",
-    "utf8": "^3.0.0"
+    "sharp": "^0.33.5",
+    "utf8": "^3.0.0",
+    "xlsx": "^0.18.5"
   },
   "author": "Floresek",
   "license": "ISC"
