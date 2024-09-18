@@ -1,5 +1,4 @@
 const fs = require('fs').promises;
-const fs_sync = require('fs');
 const path = require('path');
 const express = require('express');
 const {google} = require('googleapis');
@@ -45,6 +44,8 @@ async function authorize(credentials) {
     try {
         const token = JSON.parse(await fs.readFile(TOKEN_PATH));
         oAuth2Client.setCredentials(token);
+
+        // Set up token refresh logic
         oAuth2Client.on('tokens', (tokens) => {
             if (tokens.refresh_token) {
                 token.refresh_token = tokens.refresh_token;
@@ -54,6 +55,12 @@ async function authorize(credentials) {
             fs.writeFile(TOKEN_PATH, JSON.stringify(token));
             console.log('Token updated and saved to file');
         });
+
+        // Check if token is expired and refresh if necessary
+        if (oAuth2Client.isTokenExpiring()) {
+            await oAuth2Client.refreshAccessToken();
+            console.log('Token refreshed');
+        }
 
         return oAuth2Client;
     } catch (err) {
@@ -153,7 +160,7 @@ async function processNewEmails(connection) {
                         console.log(`Allowed attachment detected: ${filename}, MIME Type: ${mimeType}, Extension: ${extension}`);
                         try {
                             const partData = await connection.getPartData(message, part);
-                            await fs.mkdir(ATTACHMENT_DIR, { recursive: true });
+                            await fs.mkdir(ATTACHMENT_DIR, {recursive: true});
                             const filePath = path.join(ATTACHMENT_DIR, filename);
                             await fs.writeFile(filePath, partData);
                             console.log('Attachment saved:', filename);
@@ -194,8 +201,18 @@ async function markMessageAsSeen(connection, uid) {
         });
     });
 }
+
 async function startImapListener(auth) {
-    const accessToken = auth.credentials.access_token;
+
+    const getAccessToken = async () => {
+        if (auth.isTokenExpiring()) {
+            await auth.refreshAccessToken();
+            console.log('Token refreshed');
+        }
+        return auth.credentials.access_token;
+    };
+
+    const accessToken = await getAccessToken();
     const xoauth2Token = buildXOAuth2Token(EMAIL_ADDRESS, accessToken);
 
     const config = {
@@ -208,7 +225,7 @@ async function startImapListener(auth) {
             tlsOptions: {
                 rejectUnauthorized: false,
             },
-            authTimeout: 3000,
+            authTimeout: 30000,
         },
         onmail: async () => {
             console.log('New email received. Processing...');
