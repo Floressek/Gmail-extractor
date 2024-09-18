@@ -108,7 +108,4 @@ async function processEmailContent(content) {
 
 module.exports = {
     processNewEmails,
-    markMessageAsSeen,
-    getEmailContent,
-    processEmailContent
 };
