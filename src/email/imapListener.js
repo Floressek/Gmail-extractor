@@ -2,12 +2,13 @@ const imaps = require('imap-simple');
 const { processNewEmails } = require('./emailProcessor');
 const { buildXOAuth2Token } = require('../auth/authHandler');
 const { EMAIL_ADDRESS } = require('../../config/constants');
+const logger = require('../utils/logger');
 
 async function startImapListener(auth) {
     const getAccessToken = async () => {
         if (auth.isTokenExpiring()) {
             await auth.refreshAccessToken();
-            console.log('Token refreshed');
+            logger.info('Token refreshed');
         }
         return auth.credentials.access_token;
     };
@@ -28,30 +29,30 @@ async function startImapListener(auth) {
             authTimeout: 30000,
         },
         onmail: async () => {
-            console.log('New email received. Processing...');
+            logger.info('New email received. Processing...');
             try {
                 const connection = await imaps.connect(config);
                 await processNewEmails(connection);
                 await connection.end();
             } catch (error) {
-                console.error('Error processing new email:', error);
+                logger.error('Error processing new email:', error);
             }
         },
     };
 
     try {
         const connection = await imaps.connect(config);
-        console.log('Connected to IMAP server');
+        logger.info('Connected to IMAP server');
 
         // Initial scan of unseen messages
         await processNewEmails(connection);
 
-        console.log('Listening for new emails...');
+        logger.info('Listening for new emails...');
 
         // Keep the connection open to listen for new emails
         connection.imap.on('mail', config.onmail);
     } catch (err) {
-        console.error('IMAP connection error:', err);
+        logger.error('IMAP connection error:', err);
     }
 }
 

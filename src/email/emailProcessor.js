@@ -4,11 +4,12 @@ const imaps = require('imap-simple');
 const { processAttachment } = require('../attachments/attachmentProcessor');
 const { decodeFilename, isAllowedFileType, getFileExtension } = require('../utils/fileUtils');
 const { ATTACHMENT_DIR, PROCESSED_DIR } = require('../../config/constants');
+const logger = require('../utils/logger');
 
 async function processNewEmails(connection) {
     try {
         await connection.openBox('INBOX');
-        console.log('Opened INBOX');
+        logger.info('Opened INBOX');
 
         const searchCriteria = ['UNSEEN'];
         const fetchOptions = {
@@ -18,7 +19,7 @@ async function processNewEmails(connection) {
         };
 
         const messages = await connection.search(searchCriteria, fetchOptions);
-        console.log(`Found ${messages.length} new messages`);
+        logger.info(`Found ${messages.length} new messages`);
 
         for (const message of messages) {
             const uid = message.attributes.uid;
@@ -33,21 +34,21 @@ async function processNewEmails(connection) {
                     const extension = getFileExtension(filename);
 
                     if (isAllowedFileType(filename, mimeType)) {
-                        console.log(`Processing attachment: ${filename}`);
+                        logger.info(`Processing attachment: ${filename}`);
                         try {
                             const partData = await connection.getPartData(message, part);
                             await fs.mkdir(ATTACHMENT_DIR, { recursive: true });
                             const filePath = path.join(ATTACHMENT_DIR, filename);
                             await fs.writeFile(filePath, partData);
-                            console.log('Attachment saved:', filename);
+                            logger.info('Attachment saved:', filename);
 
                             await processAttachment(filePath, extension);
                         } catch (err) {
-                            console.error('Error processing attachment:', filename, err);
+                            logger.error('Error processing attachment:', filename, err);
                             processedSuccessfully = false;
                         }
                     } else {
-                        console.log(`Skipped disallowed attachment: ${filename}`);
+                        logger.warn(`Skipped disallowed attachment: ${filename}`);
                     }
                 }
             }
@@ -59,16 +60,16 @@ async function processNewEmails(connection) {
             if (processedSuccessfully) {
                 try {
                     await markMessageAsSeen(connection.imap, uid);
-                    console.log(`Marked message ${uid} as seen`);
+                    logger.info(`Marked message ${uid} as seen`);
                 } catch (err) {
-                    console.error('Error marking message as seen:', err);
+                    logger.error('Error marking message as seen:', err);
                 }
             }
         }
 
-        console.log('Finished processing all messages');
+        logger.info('Finished processing all messages');
     } catch (error) {
-        console.error('Error processing new emails:', error);
+        logger.error('Error processing new emails:', error);
     }
 }
 
@@ -76,10 +77,10 @@ async function markMessageAsSeen(connection, uid) {
     return new Promise((resolve, reject) => {
         connection.addFlags(uid, ['\\Seen'], (err) => {
             if (err) {
-                console.error('Error marking message as seen:', err);
+                logger.error('Error marking message as seen:', err);
                 reject(err);
             } else {
-                console.log(`Marked message ${uid} as seen`);
+                logger.info(`Marked message ${uid} as seen`);
                 resolve();
             }
         });
@@ -103,7 +104,7 @@ async function processEmailContent(content) {
     await fs.mkdir(emailDir, { recursive: true });
     const emailFilePath = path.join(emailDir, `email_${Date.now()}.txt`);
     await fs.writeFile(emailFilePath, content);
-    console.log(`Email content saved to ${emailFilePath}`);
+    logger.info(`Email content saved to ${emailFilePath}`);
 }
 
 module.exports = {

@@ -2,6 +2,8 @@ const imaps = require('imap-simple');
 const fs = require('fs').promises;
 const path = require('path');
 const { EMAIL_ADDRESS, ATTACHMENT_DIR, PROCESSED_DIR } = require('../../config/constants');
+const logger = require('../utils/logger');
+
 
 async function resetEmailsAndAttachments(auth) {
     try {
@@ -12,9 +14,9 @@ async function resetEmailsAndAttachments(auth) {
         await removeDirectory(ATTACHMENT_DIR);
         await removeDirectory(PROCESSED_DIR);
 
-        console.log('Reset completed successfully.');
+        logger.info('Reset completed successfully.');
     } catch (error) {
-        console.error('Error during reset:', error);
+        logger.error('Error during reset:', error);
     }
 }
 
@@ -35,23 +37,23 @@ async function markAllAsUnseen(auth) {
 
     try {
         const connection = await imaps.connect(config);
-        console.log('Connected to IMAP server');
+        logger.info('Connected to IMAP server');
 
         await connection.openBox('INBOX');
-        console.log('Opened INBOX');
+        logger.info('Opened INBOX');
 
         return new Promise((resolve, reject) => {
             connection.imap.search(['ALL'], (err, results) => {
                 if (err) {
-                    console.error('Error searching messages:', err);
+                    logger.error('Error searching messages:', err);
                     reject(err);
                     return;
                 }
 
-                console.log(`Found ${results.length} messages`);
+                logger.info(`Found ${results.length} messages`);
 
                 if (results.length === 0) {
-                    console.log('No messages to mark as unseen');
+                    logger.info('No messages to mark as unseen');
                     resolve();
                     return;
                 }
@@ -62,26 +64,26 @@ async function markAllAsUnseen(auth) {
                         const uid = attrs.uid;
                         connection.imap.delFlags(uid, ['\\Seen'], (err) => {
                             if (err) {
-                                console.error(`Error marking message ${uid} as unseen:`, err);
+                                logger.error(`Error marking message ${uid} as unseen:`, err);
                             } else {
-                                console.log(`Marked message ${uid} as unseen`);
+                                logger.info(`Marked message ${uid} as unseen`);
                             }
                         });
                     });
                 });
                 f.once('error', (err) => {
-                    console.error('Fetch error:', err);
+                    logger.error('Fetch error:', err);
                     reject(err);
                 });
                 f.once('end', () => {
-                    console.log('All messages processed');
+                    logger.info('All messages processed');
                     connection.imap.end();
                     resolve();
                 });
             });
         });
     } catch (error) {
-        console.error('Error in markAllAsUnseen:', error);
+        logger.error('Error in markAllAsUnseen:', error);
         throw error;
     }
 }
@@ -94,12 +96,12 @@ function buildXOAuth2Token(user, accessToken) {
 async function removeDirectory(dirPath) {
     try {
         await fs.rm(dirPath, { recursive: true, force: true });
-        console.log(`Removed directory: ${dirPath}`);
+        logger.info(`Removed directory: ${dirPath}`);
     } catch (error) {
         if (error.code !== 'ENOENT') {
-            console.error(`Error removing directory ${dirPath}:`, error);
+            logger.error(`Error removing directory ${dirPath}:`, error);
         } else {
-            console.log(`Directory does not exist: ${dirPath}`);
+            logger.info(`Directory does not exist: ${dirPath}`);
         }
     }
 }

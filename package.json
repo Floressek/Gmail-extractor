@@ -26,6 +26,7 @@
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^1.1.1",
     "pdf-table-extractor": "^1.0.3",
+    "pdf.js-extract": "^0.2.1",
     "picomatch": "^4.0.2",
     "quoted-printable": "^1.0.1",
     "readdirp": "^4.0.1",
@@ -33,6 +34,7 @@
     "sharp": "^0.33.5",
     "source-map-url": "^0.4.1",
     "utf8": "^3.0.0",
+    "winston": "^3.14.2",
     "xlsx": "^0.18.5"
   },
   "author": "Floresek",

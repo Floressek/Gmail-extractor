@@ -5,6 +5,8 @@ const { processWord } = require('./fileHandler/wordHandler');
 const { processSpreadsheet } = require('./fileHandler/spreadsheetHandler');
 const { processImage } = require('./fileHandler/imageHandler');
 const { PROCESSED_DIR } = require('../../config/constants');
+const logger = require('../utils/logger');
+
 
 async function processAttachment(filePath, extension) {
     const fileName = path.basename(filePath);
@@ -43,7 +45,7 @@ async function processAttachment(filePath, extension) {
     await fs.copyFile(filePath, destFilePath);
     await fs.writeFile(processedFilePath, processedContent);
 
-    console.log(`Processed ${fileName} and saved results to ${processedFilePath}`);
+    logger.info(`Processed ${fileName} and saved results to ${processedFilePath}`);
 }
 
 module.exports = {
