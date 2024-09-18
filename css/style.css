@@ -1,0 +1,40 @@
+/* style.css */
+
+/* Ustawienie ciemnego tła i jasnego tekstu */
+body {
+    background-color: #121212;
+    color: #FFFFFF;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+/* Stylizacja kontenera */
+.container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+}
+
+/* Stylizacja nagłówka */
+h1 {
+    text-align: center;
+    font-size: 2.5em;
+    color: #BB86FC;
+    margin-bottom: 20px;
+}
+
+/* Stylizacja licznika */
+#licznik {
+    font-size: 3em;
+    text-align: center;
+    color: #03DAC6;
+}
+
+/* Dodatkowe stylizacje */
+a {
+    color: #BB86FC;
+}
+
