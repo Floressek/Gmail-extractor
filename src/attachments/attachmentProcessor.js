@@ -31,7 +31,7 @@ async function processAttachment(filePath, extension) {
             processedContent = await processImage(filePath);
             break;
         default:
-            console.log(`Unsupported file format: ${extension}`);
+            logger.warn(`Unsupported file format: ${extension}`);
             return;
     }
 
