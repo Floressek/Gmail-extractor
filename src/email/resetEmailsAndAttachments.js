@@ -1,22 +1,31 @@
 const imaps = require('imap-simple');
 const fs = require('fs').promises;
-const path = require('path');
-const { EMAIL_ADDRESS, ATTACHMENT_DIR, PROCESSED_DIR } = require('../../config/constants');
-const logger = require('../utils/logger');
+const {EMAIL_ADDRESS, DATA_DIR} = require('../../config/constants');
+const {createLogger} = require('../utils/logger');
+const logger = createLogger(__filename);
 
 
 async function resetEmailsAndAttachments(auth) {
+    let connection = null;
     try {
-        // Oznacz wszystkie wiadomości jako nieprzeczytane
-        await markAllAsUnseen(auth);
+        // Mark all messages as unread
+        connection = await markAllAsUnseen(auth);
 
-        // Usuń foldery z załącznikami
-        await removeDirectory(ATTACHMENT_DIR);
-        await removeDirectory(PROCESSED_DIR);
+        // Remove directories with attachments
+        await removeDirectory(DATA_DIR);
 
         logger.info('Reset completed successfully.');
     } catch (error) {
         logger.error('Error during reset:', error);
+    } finally {
+        if (connection) {
+            try {
+                await connection.end();
+                logger.info('IMAP connection closed.');
+            } catch (err) {
+                logger.error('Error closing IMAP connection:', err);
+            }
+        }
     }
 }
 
@@ -31,7 +40,7 @@ async function markAllAsUnseen(auth) {
             port: 993,
             tls: true,
             authTimeout: 3000,
-            tlsOptions: { rejectUnauthorized: false }
+            tlsOptions: {rejectUnauthorized: false}
         }
     };
 
@@ -42,46 +51,30 @@ async function markAllAsUnseen(auth) {
         await connection.openBox('INBOX');
         logger.info('Opened INBOX');
 
-        return new Promise((resolve, reject) => {
-            connection.imap.search(['ALL'], (err, results) => {
-                if (err) {
-                    logger.error('Error searching messages:', err);
-                    reject(err);
-                    return;
-                }
+        const results = await connection.search(['ALL'], {bodies: ['HEADER']});
+        logger.info(`Found ${results.length} messages`);
 
-                logger.info(`Found ${results.length} messages`);
+        if (results.length === 0) {
+            logger.info('No messages to mark as unseen');
+            return connection;
+        }
 
-                if (results.length === 0) {
-                    logger.info('No messages to mark as unseen');
-                    resolve();
-                    return;
-                }
-
-                const f = connection.imap.fetch(results, { bodies: ['HEADER'] });
-                f.on('message', (msg) => {
-                    msg.on('attributes', (attrs) => {
-                        const uid = attrs.uid;
-                        connection.imap.delFlags(uid, ['\\Seen'], (err) => {
-                            if (err) {
-                                logger.error(`Error marking message ${uid} as unseen:`, err);
-                            } else {
-                                logger.info(`Marked message ${uid} as unseen`);
-                            }
-                        });
-                    });
-                });
-                f.once('error', (err) => {
-                    logger.error('Fetch error:', err);
-                    reject(err);
-                });
-                f.once('end', () => {
-                    logger.info('All messages processed');
-                    connection.imap.end();
-                    resolve();
+        for (const result of results) {
+            await new Promise((resolve, reject) => {
+                connection.imap.delFlags(result.attributes.uid, ['\\Seen'], (err) => {
+                    if (err) {
+                        logger.error(`Error marking message ${result.attributes.uid} as unseen:`, err);
+                        reject(err);
+                    } else {
+                        logger.info(`Marked message ${result.attributes.uid} as unseen`);
+                        resolve();
+                    }
                 });
             });
-        });
+        }
+
+        logger.info('All messages processed');
+        return connection;
     } catch (error) {
         logger.error('Error in markAllAsUnseen:', error);
         throw error;
@@ -89,13 +82,17 @@ async function markAllAsUnseen(auth) {
 }
 
 function buildXOAuth2Token(user, accessToken) {
+    if (typeof user !== 'string' || typeof accessToken !== 'string') {
+        logger.error(`Invalid input for buildXOAuth2Token. User: ${typeof user}, AccessToken: ${typeof accessToken}`);
+        return ''; // Return empty string in case of invalid input
+    }
     const authString = `user=${user}\x01auth=Bearer ${accessToken}\x01\x01`;
     return Buffer.from(authString).toString('base64');
 }
 
 async function removeDirectory(dirPath) {
     try {
-        await fs.rm(dirPath, { recursive: true, force: true });
+        await fs.rm(dirPath, {recursive: true, force: true});
         logger.info(`Removed directory: ${dirPath}`);
     } catch (error) {
         if (error.code !== 'ENOENT') {
@@ -106,4 +103,4 @@ async function removeDirectory(dirPath) {
     }
 }
 
-module.exports = { resetEmailsAndAttachments };
+module.exports = {resetEmailsAndAttachments};

@@ -1,34 +1,36 @@
-const fs = require('fs').promises;
-const { PDFExtract } = require('pdf.js-extract');
+const {PDFExtract} = require('pdf.js-extract');
+const {pdfOCR} = require('./ocr.js');
 const pdfExtract = new PDFExtract();
+const {createLogger} = require("../../utils/logger");
+const logger = createLogger(__filename);
 
 async function processPDF(filePath) {
     try {
         const data = await pdfExtract.extract(filePath, {});
-        let result = `PDF Content:\n\n`;
-        result += `Number of pages: ${data.pages.length}\n\n`;
+        let result = {
+            pageCount: data.pages.length,
+            pages: []
+        };
 
         for (let i = 0; i < data.pages.length; i++) {
             const page = data.pages[i];
-            result += `Page ${i + 1}:\n`;
-
-            const tables = extractTables(page.content);
-            if (tables.length > 0) {
-                result += `Tables found on page ${i + 1}:\n`;
-                tables.forEach((table, index) => {
-                    result += `Table ${index + 1}:\n${formatTable(table)}\n\n`;
-                });
-            } else {
-                result += `No tables found on this page.\n`;
-            }
-
-            result += `Text content:\n${extractTextContent(page.content)}\n\n`;
+            const pageContent = {
+                pageNumber: i + 1,
+                tables: extractTables(page.content),
+                textContent: extractTextContent(page.content)
+            };
+            result.pages.push(pageContent);
         }
 
-        return result;
+        const ocrResult = await pdfOCR(filePath);
+        result.ocrContent = ocrResult;
+
+        logger.info(`Successfully processed PDF: ${filePath}`);
+        return JSON.stringify(result, null, 2);
     } catch (error) {
-        console.error('Error processing PDF:', error);
-        return `Error processing PDF: ${error.message}`;
+        logger.error('Error processing PDF:', error);
+        // Return an error object instead of throwing an error
+        return JSON.stringify({error: 'Failed to process PDF'}, null, 2);
     }
 }
 
@@ -43,7 +45,7 @@ function extractTables(content) {
     content.forEach(item => {
         if (lastY === null || Math.abs(item.y - lastY) > 5) {
             if (inTable) {
-                if (currentTable.length > 1) {  // Uznajemy za tabelę, jeśli ma więcej niż jeden wiersz
+                if (currentTable.length > 1) {  // Consider it a table if it has more than one row
                     tables.push(currentTable);
                 }
                 currentTable = [];
@@ -70,7 +72,7 @@ function extractTables(content) {
 
 function isLikelyTableRow(content, item) {
     const sameYItems = content.filter(i => Math.abs(i.y - item.y) < 2);
-    return sameYItems.length >= 3;  // Uznajemy za wiersz tabeli, jeśli ma co najmniej 3 elementy w tej samej linii
+    return sameYItems.length >= 3;  // Consider it a table row if it has at least 3 elements in the same line
 }
 
 function formatTable(table) {
@@ -84,4 +86,4 @@ function extractTextContent(content) {
         .join(' ');
 }
 
-module.exports = { processPDF };
+module.exports = {processPDF};
