@@ -1,51 +1,50 @@
 const fs = require('fs').promises;
 const path = require('path');
-const { processPDF } = require('./fileHandler/pdfHandler');
-const { processWord } = require('./fileHandler/wordHandler');
-const { processSpreadsheet } = require('./fileHandler/spreadsheetHandler');
-const { processImage } = require('./fileHandler/imageHandler');
-const { PROCESSED_DIR } = require('../../config/constants');
-const logger = require('../utils/logger');
+const {processPDF} = require('./fileHandler/pdfHandler');
+const {processWord} = require('./fileHandler/wordHandler');
+const {processSpreadsheet} = require('./fileHandler/spreadsheetHandler');
+const {processImage} = require('./fileHandler/imageHandler');
+const {PROCESSED_DIR} = require('../../config/constants');
+const {createLogger} = require('../utils/logger');
+const logger = createLogger(__filename);
 
+
+const fileProcessors = {
+    '.pdf': processPDF,
+    '.doc': processWord,
+    '.docx': processWord,
+    '.xls': processSpreadsheet,
+    '.xlsx': processSpreadsheet,
+    '.csv': processSpreadsheet,
+    '.png': processImage,
+    '.jpg': processImage,
+    '.jpeg': processImage
+};
 
 async function processAttachment(filePath, extension) {
     const fileName = path.basename(filePath);
+    const emailDir = path.dirname(filePath);
     let processedContent = '';
 
-    switch (extension.toLowerCase()) {
-        case '.pdf':
-            processedContent = await processPDF(filePath);
-            break;
-        case '.doc':
-        case '.docx':
-            processedContent = await processWord(filePath);
-            break;
-        case '.xls':
-        case '.xlsx':
-        case '.csv':
-            processedContent = await processSpreadsheet(filePath);
-            break;
-        case '.png':
-        case '.jpg':
-        case '.jpeg':
-            processedContent = await processImage(filePath);
-            break;
-        default:
-            logger.warn(`Unsupported file format: ${extension}`);
-            return;
+    const processor = fileProcessors[extension.toLowerCase()];
+
+    if (!processor) {
+        logger.warn(`Unsupported file format: ${extension}`);
+        return null;
     }
 
-    const formatDir = extension.toLowerCase().replace('.', '');
-    const destDir = path.join(PROCESSED_DIR, formatDir);
-    await fs.mkdir(destDir, { recursive: true });
+    try {
+        const processedContent = await processor(filePath);
 
-    const destFilePath = path.join(destDir, fileName);
-    const processedFilePath = path.join(destDir, `${path.parse(fileName).name}_processed.txt`);
+        const processedFilePath = path.join(emailDir, `${path.parse(fileName).name}_processed.json`);
+        await fs.writeFile(processedFilePath, processedContent);
 
-    await fs.copyFile(filePath, destFilePath);
-    await fs.writeFile(processedFilePath, processedContent);
-
-    logger.info(`Processed ${fileName} and saved results to ${processedFilePath}`);
+        logger.info(`Processed ${fileName} and saved results to ${processedFilePath}`);
+        return processedFilePath;
+    } catch (error) {
+        logger.error(`Error processing ${fileName}:`, error);
+        return JSON.stringify({error: `Failed to process ${fileName}: ${error.message}`}, null, 2);
+    }
 }
 
 module.exports = {
